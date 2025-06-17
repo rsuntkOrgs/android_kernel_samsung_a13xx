@@ -201,9 +201,6 @@ obj-$(CONFIG_VISION_SUPPORT)	+= vision/
 
 obj-$(CONFIG_SEC_EXT)		+= samsung/
 
-# uH
-obj-$(CONFIG_UH)		+= uh/
-
 obj-y += regulator/pmic_class/ # ADDED BY LEGO AUTOMATICALLY: DO NOT SUBMIT
 obj-y += misc/drb/ # ADDED BY LEGO AUTOMATICALLY: DO NOT SUBMIT
 obj-y += vibrator/common/ # ADDED BY LEGO AUTOMATICALLY: DO NOT SUBMIT
