@@ -45,7 +45,6 @@ static struct hlist_head *all_lists[] = {
 	&clk_orphan_list,
 	NULL,
 };
-
 /*
  * clk_rate_change_list is used during clk_core_set_rate_nolock() calls to
  * handle vdd_class vote tracking.  core->rate_change_node is added to
