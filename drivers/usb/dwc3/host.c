@@ -8,16 +8,14 @@
  */
 
 #include <linux/platform_device.h>
+
 #ifdef CONFIG_SND_EXYNOS_USB_AUDIO
 #include <linux/usb/exynos_usb_audio.h>
-#endif
-
-#include "core.h"
-
-#ifdef CONFIG_SND_EXYNOS_USB_AUDIO
 struct host_data xhci_data;
 struct exynos_usb_audio *usb_audio;
 #endif
+
+#include "core.h"
 
 struct usb_xhci_pre_alloc {
 	u8 *pre_dma_alloc;
@@ -200,7 +198,6 @@ void dwc3_host_exit(struct dwc3 *dwc)
 			  dev_name(dwc->dev));
 	phy_remove_lookup(dwc->usb3_generic_phy, "usb3-phy",
 			  dev_name(dwc->dev));
-	if (!dwc->dotg)
-		platform_device_unregister(dwc->xhci);
+	platform_device_unregister(dwc->xhci);
 	dwc->xhci = NULL;
 }
