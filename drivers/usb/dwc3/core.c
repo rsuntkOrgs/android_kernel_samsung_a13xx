@@ -32,6 +32,7 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/of.h>
 #include <linux/usb/otg.h>
+#include <linux/usb_notify.h>
 
 #include "core.h"
 #include "otg.h"
@@ -42,12 +43,14 @@
 
 #define DWC3_DEFAULT_AUTOSUSPEND_DELAY	5000 /* ms */
 
+#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
 /* for BC1.2 spec */
 int dwc3_set_vbus_current(int state)
 {
 	struct power_supply *psy;
 	union power_supply_propval pval = {0};
 
+	pr_info("usb: %s : %dmA\n", __func__, state);
 	psy = power_supply_get_by_name("battery");
 	if (!psy) {
 		pr_err("%s: fail to get battery power_supply\n", __func__);
@@ -63,10 +66,29 @@ int dwc3_set_vbus_current(int state)
 static void dwc3_exynos_set_vbus_current_work(struct work_struct *w)
 {
 	struct dwc3 *dwc = container_of(w, struct dwc3, set_vbus_current_work);
+	struct otg_notify *o_notify = get_otg_notify();
 
+	switch (dwc->vbus_current) {
+	case USB_CURRENT_SUSPENDED:
+	/* set vbus current for suspend state is called in usb_notify. */
+		send_otg_notify(o_notify, NOTIFY_EVENT_USBD_SUSPENDED, 1);
+		goto skip;
+	case USB_CURRENT_UNCONFIGURED:
+		send_otg_notify(o_notify, NOTIFY_EVENT_USBD_UNCONFIGURED, 1);
+		break;
+	case USB_CURRENT_HIGH_SPEED:
+	case USB_CURRENT_SUPER_SPEED:
+		send_otg_notify(o_notify, NOTIFY_EVENT_USBD_CONFIGURED, 1);
+		break;
+	default:
+		break;
+	}
 	dwc3_set_vbus_current(dwc->vbus_current);
+skip:
+	return;
 }
 /* -------------------------------------------------------------------------- */
+#endif
 
 /**
  * dwc3_get_dr_mode - Validates and sets dr_mode
@@ -147,14 +169,16 @@ static void __dwc3_set_mode(struct work_struct *work)
 	if (dwc->dr_mode != USB_DR_MODE_OTG)
 		return;
 
+	pm_runtime_get_sync(dwc->dev);
+
 	if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_OTG)
 		dwc3_otg_update(dwc, 0);
 
 	if (!dwc->desired_dr_role)
-		return;
+		goto out;
 
 	if (dwc->desired_dr_role == dwc->current_dr_role)
-		return;
+		goto out;
 
 	if (dwc->dr_mode != USB_DR_MODE_OTG)
 		return;
@@ -482,10 +506,6 @@ static int dwc3_core_soft_reset(struct dwc3 *dwc)
 
 	usb_phy_init(dwc->usb2_phy);
 	usb_phy_init(dwc->usb3_phy);
-
-	dev_info(dwc->dev, "%s: init_count:%d, power_count:%d\n", __func__,
-			dwc->usb2_generic_phy->init_count, dwc->usb2_generic_phy->power_count);
-
 	ret = phy_init(dwc->usb2_generic_phy);
 	if (ret < 0)
 		goto err_usb2phy_power;
@@ -732,17 +752,6 @@ void dwc3_event_buffers_cleanup(struct dwc3 *dwc)
 {
 	struct dwc3_event_buffer	*evt;
 	u32 left = 0;
-	u32	reg;
-
-	if (!dwc->ev_buf)
-		return;
-	/*
-	 * Exynos platforms may not be able to access event buffer if the
-	 * controller failed to halt on dwc3_core_exit().
-	 */
-	reg = dwc3_readl(dwc->regs, DWC3_DSTS);
-	if (!(reg & DWC3_DSTS_DEVCTRLHLT))
-		return;
 
 	evt = dwc->ev_buf;
 
@@ -1781,7 +1790,6 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 	dwc->tx_max_burst_prd = tx_max_burst_prd;
 
 	dwc->imod_interval = 0;
-	dwc->max_cnt_link_info = 0;
 }
 
 /* check whether the core supports IMOD */
@@ -1948,15 +1956,14 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	pm_runtime_put(dev);
 
+#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
 	INIT_WORK(&dwc->set_vbus_current_work, dwc3_exynos_set_vbus_current_work);
+#endif
 
 	/* Disable LDO */
 	phy_conn(dwc->usb2_generic_phy, 0);
 
 	pr_info("%s: ---\n", __func__);
-
-	dma_set_max_seg_size(dev, UINT_MAX);
-
 	return 0;
 
 err5:
@@ -2008,7 +2015,6 @@ static int dwc3_remove(struct platform_device *pdev)
 
 	if (dwc->dr_mode != USB_DR_MODE_OTG)
 		pm_runtime_put_sync(&pdev->dev);
-
 	pm_runtime_allow(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
@@ -2222,26 +2228,12 @@ static int dwc3_resume(struct device *dev)
 
 	return 0;
 }
-
-static void dwc3_complete(struct device *dev)
-{
-	struct dwc3	*dwc = dev_get_drvdata(dev);
-	u32		reg;
-
-	if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_HOST &&
-			dwc->dis_split_quirk) {
-		reg = dwc3_readl(dwc->regs, DWC3_GUCTL3);
-		reg |= DWC3_GUCTL3_SPLITDISABLE;
-		dwc3_writel(dwc->regs, DWC3_GUCTL3, reg);
-	}
-}
 #else
 #define dwc3_complete NULL
 #endif /* CONFIG_PM_SLEEP */
 
 static const struct dev_pm_ops dwc3_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(dwc3_suspend, dwc3_resume)
-	.complete = dwc3_complete,
 	/*SET_RUNTIME_PM_OPS(dwc3_runtime_suspend, dwc3_runtime_resume,
 			dwc3_runtime_idle) */
 };

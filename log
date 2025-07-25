@@ -1,0 +1,14 @@
+make: Entering directory '/workspace/.github/a13xx'
+make[1]: Entering directory '/workspace/.github/a13xx/out'
+  Using .. as source for kernel
+  GEN     ./Makefile
+  CALL    ../scripts/checksyscalls.sh
+  CHK     include/generated/compile.h
+  CHK     kernel/kheaders_data.tar.xz
+PLATFORM_VERSION is 13
+ANDROID_PLATFORM_VERSION is 13
+PLATFORM_VERSION is 13
+ANDROID_PLATFORM_VERSION is 13
+  CC      drivers/usb/gadget/function/u_ether.o
+make[1]: Leaving directory '/workspace/.github/a13xx/out'
+make: Leaving directory '/workspace/.github/a13xx'
