@@ -5,6 +5,9 @@ SUBLEVEL = 325
 EXTRAVERSION =
 NAME = "People's Front"
 
+# SCSC stuff
+export PLATFORM_VERSION=13
+
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
 # More info can be located in ./README
