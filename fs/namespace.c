@@ -98,10 +98,6 @@ enum {
 	UMOUNT_STATUS_MAX
 };
 
-static const char *umount_exit_str[UMOUNT_STATUS_MAX] = {
-	"ADDED_TASK", "REMAIN_NS", "REMAIN_CNT", "DELAY_TASK"
-};
-
 static const char *exception_process[] = {
 	"main", "ch_zygote", "usap32", "usap64", NULL,
 };
